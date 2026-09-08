@@ -490,8 +490,21 @@
   </template>
 
   <script>
-    // Paste the Apps Script Web App URL here after deploying Code.gs
-    // (Deploy -> New deployment -> Web app -> copy the URL ending in /exec).
+    // ------------------------------------------------------------------
+    // CONNECTION TO GOOGLE SHEET / APPS SCRIPT
+    //   Google Sheet  : https://docs.google.com/spreadsheets/d/1WHibBzT1UCGBaWlyR-ndmTFIEOnCKiVM/edit
+    //   Apps Script   : Code.gs, deployed as a Web app (Deploy -> Manage deployments)
+    //   Deployment ID : AKfycbxpw8wFy8BCr6ljI9iRZFlZB1cbtd3zpjgz0h2dBp2T8zb66UcbohKAoaJPGs6sGn6E0g
+    //   Version       : 2 (Sep 8, 2026, 5:03 PM)
+    //   Web app URL   : https://script.google.com/macros/s/AKfycbxpw8wFy8BCr6ljI9iRZFlZB1cbtd3zpjgz0h2dBp2T8zb66UcbohKAoaJPGs6sGn6E0g/exec
+    //   Library URL   : https://script.google.com/macros/library/d/1Q33xWh57u7bec-vJwm2iwBX8WhDFqK0YzY_-Xu2q_YbCRi80Qnilt0ad/2
+    //
+    //   Every submission below POSTs straight to the Web app URL, which
+    //   writes into the Ledger sheet of that Google Sheet. If you redeploy
+    //   Code.gs and get a NEW /exec URL, update SCRIPT_URL here to match -
+    //   redeploying a NEW VERSION of the SAME deployment (like above) keeps
+    //   the same URL, so nothing here needs to change for that.
+    // ------------------------------------------------------------------
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpw8wFy8BCr6ljI9iRZFlZB1cbtd3zpjgz0h2dBp2T8zb66UcbohKAoaJPGs6sGn6E0g/exec';
 
     const form = document.getElementById('salonForm');
