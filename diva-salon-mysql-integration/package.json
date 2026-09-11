@@ -1,9 +1,0 @@
-{
-  "name": "diva-salon-beneficiary-income-tracker",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Diva Salon beneficiary income intake form (static) + a Vercel serverless function that writes each submission into the MySQL beneficiary database.",
-  "dependencies": {
-    "mysql2": "^3.11.0"
-  }
-}
