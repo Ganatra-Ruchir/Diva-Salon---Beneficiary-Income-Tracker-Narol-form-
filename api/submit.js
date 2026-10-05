@@ -113,7 +113,25 @@ async function findOrCreateStaff(conn, fullName, role) {
   return res.insertId;
 }
 
+function normalizePhone(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  return digits.length === 10 ? digits : '';
+}
+
+function normalizeBookNo(value) {
+  const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const compact = raw.replace(/[^A-Z0-9]/g, '');
+  const match = compact.match(/^([A-Z]+)(\d+)$/);
+  return match ? `${match[1]}-${match[2]}` : raw;
+}
+
+function bookLookupKey(value) {
+  return normalizeBookNo(value).replace(/[^A-Z0-9]/g, '');
+}
+
 async function findOrCreateClient(conn, { clientName, contact, areaId, dob, anniversary }) {
+  contact = normalizePhone(contact);
   if (contact) {
     const [rows] = await conn.query(
       'SELECT client_id FROM clients WHERE contact_number = ? LIMIT 1',
@@ -136,11 +154,15 @@ async function findOrCreateClient(conn, { clientName, contact, areaId, dob, anni
 // income is captured and clearly flagged for someone to reconcile with the
 // real family record later.
 async function findOrCreateBeneficiary(conn, { bookNo, name }) {
-  const code = (bookNo || '').trim();
-  if (code) {
+  const code = normalizeBookNo(bookNo);
+  const lookupKey = bookLookupKey(code);
+  if (lookupKey) {
     const [rows] = await conn.query(
-      'SELECT member_id FROM family_members WHERE beneficiary_book_no = ? LIMIT 1',
-      [code]
+      `SELECT member_id
+       FROM family_members
+       WHERE UPPER(REPLACE(REPLACE(REPLACE(beneficiary_book_no, '-', ''), ' ', ''), '.', '')) = ?
+       LIMIT 1`,
+      [lookupKey]
     );
     if (rows.length) return rows[0].member_id;
   }
@@ -191,6 +213,29 @@ module.exports = async (req, res) => {
     res.status(400).json({ status: 'error', message: 'Payload missing beneficiaries[]' });
     return;
   }
+
+  const normalizedContact = normalizePhone(payload.contact);
+  if (!normalizedContact) {
+    res.status(400).json({ status: 'error', message: 'Contact number must contain exactly 10 digits' });
+    return;
+  }
+  payload.contact = normalizedContact;
+
+  const totalAmount = Number(payload.totalAmount || 0);
+  const allocatedAmount = payload.beneficiaries.reduce(
+    (sum, b) => sum + Number(b.amountReceived || 0), 0
+  );
+  if (Math.abs(totalAmount - allocatedAmount) > 0.005) {
+    res.status(400).json({ status: 'error', message: 'Beneficiary allocation does not match total amount' });
+    return;
+  }
+
+  payload.beneficiaries = payload.beneficiaries.map(b => ({
+    ...b,
+    name: String(b.name || '').trim().replace(/\s+/g, ' '),
+    bookNo: normalizeBookNo(b.bookNo),
+    batchNumber: String(b.batchNumber || '').trim().replace(/\s+/g, ' '),
+  }));
 
   const db = getPool();
   const conn = await db.getConnection();
