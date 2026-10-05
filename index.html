@@ -314,8 +314,8 @@
 
           <div class="field">
             <label for="contact" class="req">Contact No.</label>
-            <input type="tel" id="contact" name="contact" inputmode="numeric" maxlength="15"
-                   placeholder="10-digit mobile number" required />
+            <input type="tel" id="contact" name="contact" inputmode="numeric" maxlength="10"
+                   pattern="[0-9]{10}" placeholder="10-digit mobile number" required />
           </div>
 
           <div class="field">
@@ -528,6 +528,37 @@
       return form.querySelector('input[name="distribution"]:checked')?.value || null;
     }
 
+    const cleanText = value => String(value || '').trim().replace(/\s+/g, ' ');
+
+    function normalizePhone(value){
+      let digits = String(value || '').replace(/\D/g, '');
+      if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+      return digits;
+    }
+
+    function normalizeBookNo(value){
+      const raw = cleanText(value).toUpperCase();
+      const compact = raw.replace(/[^A-Z0-9]/g, '');
+      const match = compact.match(/^([A-Z]+)(\d+)$/);
+      return match ? `${match[1]}-${match[2]}` : raw;
+    }
+
+    function localISODate(){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    const dateInput = document.getElementById('date');
+    const contactInput = document.getElementById('contact');
+    dateInput.max = localISODate();
+
+    contactInput.addEventListener('input', () => {
+      contactInput.value = normalizePhone(contactInput.value).slice(0, 10);
+    });
+
     function typeRadioHTML(idPrefix){
       return ['Salon client','Home service','Salon extension'].map((label, i) => `
         <label class="choice">
@@ -548,6 +579,13 @@
       node.querySelector('.b-amount').name = unique + '-amount';
       node.querySelector('.b-book').name = unique + '-book';
       node.querySelector('.b-batch').name = unique + '-batch';
+
+      node.querySelector('.b-name').addEventListener('blur', e => {
+        e.target.value = cleanText(e.target.value);
+      });
+      node.querySelector('.b-book').addEventListener('blur', e => {
+        e.target.value = normalizeBookNo(e.target.value);
+      });
 
       const amountInput = node.querySelector('.b-amount');
       amountInput.value = amount;
@@ -648,7 +686,8 @@
       beneficiaryCounter = 0;
       mode = null;
       clearMessage();
-      document.getElementById('date').valueAsDate = new Date();
+      dateInput.max = localISODate();
+      dateInput.value = localISODate();
       window.scrollTo({top:0, behavior:'smooth'});
     });
 
@@ -662,6 +701,20 @@
         return;
       }
 
+      if (dateInput.value > localISODate()){
+        showMessage('Service date cannot be in the future.', 'error');
+        dateInput.focus();
+        return;
+      }
+
+      const normalizedContact = normalizePhone(contactInput.value);
+      if (!/^\d{10}$/.test(normalizedContact)){
+        showMessage('Enter a valid 10-digit contact number.', 'error');
+        contactInput.focus();
+        return;
+      }
+      contactInput.value = normalizedContact;
+
       const total = parseFloat(totalAmount.value) || 0;
       const allocated = [...container.querySelectorAll('.b-amount')]
         .reduce((sum, input) => sum + (parseFloat(input.value) || 0), 0);
@@ -674,21 +727,21 @@
       const payload = {
         batch: document.getElementById('batch').value,
         date: document.getElementById('date').value,
-        clientName: document.getElementById('clientName').value.trim(),
-        contact: document.getElementById('contact').value.trim(),
+        clientName: cleanText(document.getElementById('clientName').value),
+        contact: normalizedContact,
         clientType: form.querySelector('input[name="clientType"]:checked')?.value,
         dob: document.getElementById('dob').value,
         weddingAnniversary: document.getElementById('anniversary').value,
-        area: document.getElementById('area').value.trim(),
+        area: cleanText(document.getElementById('area').value),
         distribution: mode,
-        serviceProvided: document.getElementById('service').value.trim(),
+        serviceProvided: cleanText(document.getElementById('service').value),
         totalAmount: total,
         paymentMode: form.querySelector('input[name="paymentMode"]:checked')?.value,
         beneficiaries: [...container.querySelectorAll('.beneficiary-card')].map(card => ({
-          name: card.querySelector('.b-name').value.trim(),
+          name: cleanText(card.querySelector('.b-name').value),
           amountReceived: parseFloat(card.querySelector('.b-amount').value) || 0,
-          bookNo: card.querySelector('.b-book').value.trim(),
-          batchNumber: card.querySelector('.b-batch').value.trim(),
+          bookNo: normalizeBookNo(card.querySelector('.b-book').value),
+          batchNumber: cleanText(card.querySelector('.b-batch').value),
           beneficiaryType: card.querySelector('input[type="radio"]:checked')?.value || ''
         })),
         batchShift: form.querySelector('input[name="batchShift"]:checked')?.value,
@@ -712,7 +765,8 @@
         addBtn.classList.add('hidden');
         allocationIntro.classList.remove('hidden');
         mode = null;
-        document.getElementById('date').valueAsDate = new Date();
+        dateInput.max = localISODate();
+      dateInput.value = localISODate();
       };
 
       // Every submission now goes to BOTH places at once:
@@ -770,7 +824,8 @@
     });
 
     // Set today's date by default.
-    document.getElementById('date').valueAsDate = new Date();
+    dateInput.max = localISODate();
+      dateInput.value = localISODate();
   </script>
 </body>
 </html>
